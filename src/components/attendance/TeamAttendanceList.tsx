@@ -35,6 +35,8 @@ export function TeamAttendanceList({ role }: TeamAttendanceListProps) {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [currentUser, setCurrentUser] = useState<any>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 10;
 
     const router = useRouter();
 
@@ -223,13 +225,30 @@ export function TeamAttendanceList({ role }: TeamAttendanceListProps) {
 
     const filteredUsers = users.filter(user =>
         user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.designation?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.department?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    // Reset to first page when search changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery]);
+
+    const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const paginatedUsers = filteredUsers.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+    const getDepartmentSummary = () => {
+        if (role === 'employee' || role === 'manager') {
+            return currentUser?.department ? `Department: ${currentUser.department}` : 'My Department';
+        }
+        return 'All Departments';
+    };
+
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between">
-                <div className="relative w-64">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="relative w-full sm:w-64">
                     <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-500" />
                     <Input
                         placeholder="Search team members..."
@@ -239,7 +258,8 @@ export function TeamAttendanceList({ role }: TeamAttendanceListProps) {
                     />
                 </div>
                 <div className="text-sm text-slate-500">
-                    Showing {filteredUsers.length} members
+                    <span className="font-medium text-slate-700 mr-4">{getDepartmentSummary()}</span>
+                    Total Members: {filteredUsers.length}
                 </div>
             </div>
 
@@ -248,8 +268,7 @@ export function TeamAttendanceList({ role }: TeamAttendanceListProps) {
                     <TableHeader>
                         <TableRow>
                             <TableHead>Member</TableHead>
-                            <TableHead>Role</TableHead>
-                            <TableHead>Department</TableHead>
+                            <TableHead>Designation</TableHead>
                             <TableHead>Today's Status</TableHead>
                             <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
@@ -263,8 +282,8 @@ export function TeamAttendanceList({ role }: TeamAttendanceListProps) {
                                     </div>
                                 </TableCell>
                             </TableRow>
-                        ) : filteredUsers.length > 0 ? (
-                            filteredUsers.map((user) => (
+                        ) : paginatedUsers.length > 0 ? (
+                            paginatedUsers.map((user) => (
                                 <TableRow key={user.id}>
                                     <TableCell>
                                         <div className="flex items-center gap-3">
@@ -280,13 +299,8 @@ export function TeamAttendanceList({ role }: TeamAttendanceListProps) {
                                             </div>
                                         </div>
                                     </TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline" className="capitalize font-normal">
-                                            {user.role}
-                                        </Badge>
-                                    </TableCell>
                                     <TableCell className="text-sm text-slate-600">
-                                        {user.department || "-"}
+                                        {user.designation || "-"}
                                     </TableCell>
                                     <TableCell>
                                         <Badge
@@ -325,6 +339,31 @@ export function TeamAttendanceList({ role }: TeamAttendanceListProps) {
                     </TableBody>
                 </Table>
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-end space-x-2 py-4">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                    >
+                        Previous
+                    </Button>
+                    <div className="text-sm text-slate-600">
+                        Page {currentPage} of {totalPages}
+                    </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                    >
+                        Next
+                    </Button>
+                </div>
+            )}
         </div>
     );
 }
