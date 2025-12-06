@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   CalendarDays,
   Users,
+  FileSpreadsheet,
   ShieldCheck,
   UserCog,
   Settings,
@@ -21,10 +22,8 @@ import {
   ClipboardCheck,
   RotateCcw,
   BarChart3,
-  FilePlus,
+  CalendarPlus,
   Scale,
-  Sliders,
-  FileClock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -58,10 +57,10 @@ const employeeExtra: NavItem[] = [
   { label: "Team Attendance", href: "/employee/team", icon: Users },
   {
     label: "Leaves",
-    href: "/leaves/apply",
-    icon: FileClock,
+    href: "/leaves/apply", // Or keep parent clickable?
+    icon: CalendarPlus,
     children: [
-      { label: "Apply Leave", href: "/leaves/apply", icon: FilePlus },
+      { label: "Apply Leave", href: "/leaves/apply", icon: CalendarPlus },
       { label: "Leave Balance", href: "/leaves/balance", icon: Scale },
     ],
   },
@@ -72,9 +71,9 @@ const managerExtra: NavItem[] = [
   {
     label: "Leaves",
     href: "/admin/leaves",
-    icon: FileClock,
+    icon: CalendarPlus,
     children: [
-      { label: "Apply Leave", href: "/leaves/apply", icon: FilePlus },
+      { label: "Apply Leave", href: "/leaves/apply", icon: CalendarPlus },
       { label: "Leave Balance", href: "/leaves/balance", icon: Scale },
       { label: "Approvals", href: "/admin/leaves", icon: ClipboardCheck, exact: true },
     ],
@@ -88,9 +87,9 @@ const hrExtra: NavItem[] = [
   {
     label: "Leaves",
     href: "/leaves/apply",
-    icon: FileClock,
+    icon: CalendarPlus,
     children: [
-      { label: "Apply Leave", href: "/leaves/apply", icon: FilePlus },
+      { label: "Apply Leave", href: "/leaves/apply", icon: CalendarPlus },
       { label: "Leave Balance", href: "/leaves/balance", icon: Scale },
       { label: "Approvals", href: "/admin/leaves", icon: ClipboardCheck, exact: true },
     ],
@@ -107,13 +106,14 @@ const adminExtra: NavItem[] = [
   {
     label: "Leaves",
     href: "/admin/leaves",
-    icon: FileClock,
+    icon: CalendarPlus,
     children: [
-      { label: "Limits", href: "/admin/leaves/limits", icon: Sliders },
+      { label: "Limits", href: "/admin/leaves/limits", icon: ShieldCheck },
       { label: "Approvals", href: "/admin/leaves", icon: ClipboardCheck, exact: true },
       { label: "Reset Balances", href: "/admin/leaves/reset", icon: RotateCcw },
     ],
   },
+  { label: "Reports", href: "/admin/reports", icon: BarChart3 },
   { label: "Notice Board", href: "/admin/settings", icon: Megaphone },
 ];
 export function navForRole(role: Role): NavItem[] {

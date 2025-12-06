@@ -22,7 +22,6 @@ import { Loader2, Trash2, Clock, CheckCircle, XCircle, AlertCircle } from "lucid
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { DatePicker } from "@/components/ui/date-picker";
 
 type LeaveRequest = {
     id: string;
@@ -47,8 +46,8 @@ export default function ApplyLeavePage() {
 
     // Form State
     const [leaveType, setLeaveType] = useState("");
-    const [startDate, setStartDate] = useState<Date | undefined>(undefined);
-    const [endDate, setEndDate] = useState<Date | undefined>(undefined);
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
     const [reason, setReason] = useState("");
     const [session, setSession] = useState("first_half");
     const [workConfig, setWorkConfig] = useState<any>(null);
@@ -212,8 +211,8 @@ export default function ApplyLeavePage() {
                 body: JSON.stringify({
                     userId: user.id,
                     type: leaveType,
-                    startDate: startDate ? format(startDate, 'yyyy-MM-dd') : null,
-                    endDate: endDate ? format(endDate, 'yyyy-MM-dd') : null,
+                    startDate,
+                    endDate,
                     reason,
                     approverId: selectedApproverId,
                     session: leaveType === 'Half Day' ? session : undefined
@@ -225,8 +224,8 @@ export default function ApplyLeavePage() {
 
             toast.success("Leave application submitted");
             setLeaveType("");
-            setStartDate(undefined);
-            setEndDate(undefined);
+            setStartDate("");
+            setEndDate("");
             setReason("");
             fetchData(); // Refresh lists
             setShowSuccess(true);
@@ -434,18 +433,24 @@ export default function ApplyLeavePage() {
 
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-2">
-                                                <Label>Start Date</Label>
-                                                <DatePicker
-                                                    date={startDate}
-                                                    setDate={setStartDate}
+                                                <Label htmlFor="startDate">Start Date</Label>
+                                                <Input
+                                                    id="startDate"
+                                                    type="date"
+                                                    value={startDate}
+                                                    onChange={(e) => setStartDate(e.target.value)}
+                                                    required
                                                 />
                                             </div>
                                             <div className="space-y-2">
-                                                <Label>End Date</Label>
-                                                <DatePicker
-                                                    date={endDate}
-                                                    setDate={setEndDate}
-                                                    minDate={startDate}
+                                                <Label htmlFor="endDate">End Date</Label>
+                                                <Input
+                                                    id="endDate"
+                                                    type="date"
+                                                    value={endDate}
+                                                    onChange={(e) => setEndDate(e.target.value)}
+                                                    required
+                                                    min={startDate}
                                                     disabled={leaveType === 'Half Day'}
                                                     className={leaveType === 'Half Day' ? "bg-slate-100 text-slate-500" : ""}
                                                 />
