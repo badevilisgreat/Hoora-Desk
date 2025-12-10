@@ -137,7 +137,6 @@ const adminExtra: NavItem[] = [
     ],
   },
   { label: "Reports", href: "/admin/reports", icon: BarChart3 },
-  { label: "Reports", href: "/admin/reports", icon: BarChart3 },
   { label: "Policies", href: "/admin/policies", icon: ShieldCheck },
   { label: "Notice Board", href: "/admin/settings", icon: Megaphone },
 ];
