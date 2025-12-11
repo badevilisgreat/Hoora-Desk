@@ -47,6 +47,31 @@ export async function POST(request: NextRequest) {
             requestedDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
         }
 
+        // 3. Check for Overlapping Leaves (Prevent Duplicate Requests)
+        const { data: overlappingLeaves, error: overlapError } = await supabaseAdmin
+            .from('leaves')
+            .select('id, start_date, end_date, status')
+            .eq('user_id', userId)
+            .neq('status', 'rejected') // Check both pending and approved
+            .lte('start_date', endDate) // Overlap logic: Start <= NewEnd
+            .gte('end_date', startDate); // Overlap logic: End >= NewStart
+
+        if (overlapError) throw overlapError;
+
+        if (overlappingLeaves && overlappingLeaves.length > 0) {
+            const hasApproved = overlappingLeaves.some(l => l.status === 'approved');
+            
+            if (hasApproved) {
+                return NextResponse.json({
+                    error: "That day leave is already approved. You can't apply. Contact admin."
+                }, { status: 400 });
+            } else {
+                return NextResponse.json({
+                    error: "You already have a leave request for this date. Please cancel it to proceed."
+                }, { status: 400 });
+            }
+        }
+
         if (department) {
             // 2. Get Leave Limit for Department & Type
             const { data: limitData, error: limitError } = await supabaseAdmin
@@ -59,10 +84,15 @@ export async function POST(request: NextRequest) {
             if (limitData) {
                 const maxDays = limitData.limit_days;
 
-                // 4. Calculate used/pending days in current year
-                const currentYear = new Date().getFullYear();
-                const startOfYear = `${currentYear}-01-01`;
-                const endOfYear = `${currentYear}-12-31`;
+                // 4. Calculate used/pending days in current year/cycle
+                const { data: resetData } = await supabaseAdmin
+                    .from('system_settings')
+                    .select('value')
+                    .eq('key', 'leave_reset_date')
+                    .single();
+
+                const startDate = resetData?.value || `${new Date().getFullYear()}-01-01`;
+                const endDate = `${new Date().getFullYear()}-12-31`;
 
                 const { data: existingLeaves, error: leavesError } = await supabaseAdmin
                     .from('leaves')
@@ -70,8 +100,8 @@ export async function POST(request: NextRequest) {
                     .eq('user_id', userId)
                     .eq('type', type)
                     .neq('status', 'rejected') // Count pending and approved
-                    .gte('start_date', startOfYear)
-                    .lte('end_date', endOfYear);
+                    .gt('start_date', startDate) // Strictly after reset date to match balance logic
+                    .lte('end_date', endDate);
 
                 if (leavesError) throw leavesError;
 
