@@ -35,6 +35,7 @@ type AttendanceRecord = {
     color?: string; // Dynamic color
     label?: string; // Dynamic label
     session?: string;
+    isRegularized?: boolean;
 };
 
 type StatusStyle = {
@@ -75,6 +76,13 @@ const defaultStyles: Record<string, StatusStyle> = {
         bg: "bg-slate-50",
         text: "text-slate-400",
         border: "border-dashed border-slate-200",
+    },
+    EXTRA_WORK: {
+        label: "Extra Working Day",
+        short: "EW",
+        bg: "bg-purple-100",
+        text: "text-purple-800",
+        border: "border-purple-300",
     },
 };
 
@@ -197,6 +205,37 @@ export function AttendanceCalendar({ userId }: { userId?: string }) {
 
                     // Only if within current month view
                     if (dateStr >= monthStartStr && dateStr <= monthEndStr) {
+                        
+                        // Handle Regularization differently
+                        if (leave.type === 'Regularization') {
+                            const existingIndex = processedRecords.findIndex(r => r.date === dateStr);
+                            if (existingIndex !== -1) {
+                                // Mark existing record as regularized
+                                processedRecords[existingIndex].isRegularized = true;
+                            } else {
+                                // Should be present in attendance if approved, but if not, add it
+                                processedRecords.push({
+                                    date: dateStr,
+                                    status: 'OFFICE', // Assume present
+                                    isRegularized: true
+                                });
+                            }
+                            continue; // Skip standard leave processing
+                        }
+
+                        if (leave.type === 'Extra Working Day') {
+                             const existingIndex = processedRecords.findIndex(r => r.date === dateStr);
+                             if (existingIndex !== -1) processedRecords.splice(existingIndex, 1);
+                             
+                             processedRecords.push({
+                                 date: dateStr,
+                                 status: 'EXTRA_WORK',
+                                 color: '#9333ea',
+                                 label: 'Extra Work'
+                             });
+                             continue;
+                        }
+
                         // Find leave type color (Case Insensitive Match)
                         const leaveTypeInfo = leaveTypes.find(lt =>
                             lt.leave_type.trim().toLowerCase() === leave.type.trim().toLowerCase()
@@ -256,6 +295,7 @@ export function AttendanceCalendar({ userId }: { userId?: string }) {
         let leave = 0;
         let absent = 0;
         let halfDays = 0;
+        let extraWork = 0;
 
         const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
@@ -277,6 +317,8 @@ export function AttendanceCalendar({ userId }: { userId?: string }) {
                     if (rec.session && rec.session !== 'full_day') {
                         halfDays++;
                         leave += 0.5;
+                    } else if (rec.status === 'EXTRA_WORK') {
+                         extraWork++;
                     } else {
                         leave++;
                     }
@@ -291,7 +333,7 @@ export function AttendanceCalendar({ userId }: { userId?: string }) {
             }
         });
 
-        return { present, wfh, leave, absent, halfDays };
+        return { present, wfh, leave, absent, halfDays, extraWork };
     }, [records, monthStart, monthEnd, today, workConfig, dateOfJoining]);
 
     const getStyle = (status: string, color?: string): StatusStyle | undefined => {
@@ -376,7 +418,7 @@ export function AttendanceCalendar({ userId }: { userId?: string }) {
                 <div
                     key={day.toISOString()}
                     className={cn(
-                        "flex min-h-[60px] sm:min-h-[72px] lg:min-h-[82px] w-full flex-col border border-slate-100 p-1.5 sm:p-2 text-left text-[10px] sm:text-xs transition-colors",
+                        "flex min-h-[60px] sm:min-h-[72px] lg:min-h-[82px] w-full flex-col border border-slate-100 p-1.5 sm:p-2 text-left text-[10px] sm:text-xs transition-colors relative",
                         !inMonth && "bg-slate-50/70 text-slate-300",
                         effectiveStyle && !rec?.color && !rec?.session && inMonth && `${effectiveStyle.bg} ${effectiveStyle.border}`,
                         !effectiveStyle && inMonth && "bg-white",
@@ -423,6 +465,15 @@ export function AttendanceCalendar({ userId }: { userId?: string }) {
                             {isBeforeJoining ? "Not Registered" : "-"}
                         </div>
                     )}
+
+                    {/* Regularization Triangle (Bottom Right) */}
+                    {rec?.isRegularized && (
+                        <div 
+                            className="absolute bottom-1 right-1 h-2 w-2 bg-black" 
+                            style={{ clipPath: 'polygon(100% 0, 0 100%, 100% 100%)' }}
+                            title="Regularized Attendance"
+                        />
+                    )}
                 </div>
             );
 
@@ -439,7 +490,7 @@ export function AttendanceCalendar({ userId }: { userId?: string }) {
     return (
         <div className="space-y-6">
             {/* Stats Cards */}
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
                 <Card>
                     <CardContent className="p-4 text-center">
                         <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Present</p>
@@ -462,6 +513,12 @@ export function AttendanceCalendar({ userId }: { userId?: string }) {
                     <CardContent className="p-4 text-center">
                         <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Half Day</p>
                         <p className="mt-1 text-2xl font-bold text-purple-600">{stats.halfDays}</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardContent className="p-4 text-center">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Extra Work</p>
+                        <p className="mt-1 text-2xl font-bold text-purple-600">{stats.extraWork}</p>
                     </CardContent>
                 </Card>
                 <Card>

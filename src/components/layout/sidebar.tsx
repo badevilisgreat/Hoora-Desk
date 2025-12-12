@@ -26,6 +26,9 @@ import {
   Scale,
   MapPin,
   Building2,
+  Network,
+  CalendarCheck2,
+  Briefcase,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -63,6 +66,8 @@ const employeeExtra: NavItem[] = [
     icon: CalendarPlus,
     children: [
       { label: "Apply Leave", href: "/leaves/apply", icon: CalendarPlus },
+      { label: "Regularization", href: "/leaves/regularization", icon: CalendarCheck2 },
+      { label: "Extra Work", href: "/leaves/extra-working-day", icon: Briefcase },
       { label: "Leave Balance", href: "/leaves/balance", icon: Scale },
     ],
   },
@@ -76,6 +81,8 @@ const managerExtra: NavItem[] = [
     icon: CalendarPlus,
     children: [
       { label: "Apply Leave", href: "/leaves/apply", icon: CalendarPlus },
+      { label: "Regularization", href: "/leaves/regularization", icon: CalendarCheck2 },
+      { label: "Extra Work", href: "/leaves/extra-working-day", icon: Briefcase },
       { label: "Leave Balance", href: "/leaves/balance", icon: Scale },
       {
         label: "Approvals",
@@ -96,6 +103,8 @@ const hrExtra: NavItem[] = [
     icon: CalendarPlus,
     children: [
       { label: "Apply Leave", href: "/leaves/apply", icon: CalendarPlus },
+      { label: "Regularization", href: "/leaves/regularization", icon: CalendarCheck2 },
+      { label: "Extra Work", href: "/leaves/extra-working-day", icon: Briefcase },
       { label: "Leave Balance", href: "/leaves/balance", icon: Scale },
       {
         label: "Approvals",
@@ -139,6 +148,7 @@ const adminExtra: NavItem[] = [
   { label: "Reports", href: "/admin/reports", icon: BarChart3 },
   { label: "Policies", href: "/admin/policies", icon: ShieldCheck },
   { label: "Notice Board", href: "/admin/settings", icon: Megaphone },
+  { label: "Hierarchy", href: "/admin/hierarchy", icon: Network },
 ];
 export function navForRole(role: Role): NavItem[] {
   switch (role) {
