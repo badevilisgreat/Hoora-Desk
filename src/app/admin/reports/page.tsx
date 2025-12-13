@@ -21,21 +21,6 @@ import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Loader2, AlertTriangle, XCircle, Clock, CalendarDays, Users, TrendingUp, CalendarCheck, AlertCircle } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Check, ChevronsUpDown } from "lucide-react";
-import { cn } from "@/lib/utils";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 
 
 
@@ -61,9 +46,6 @@ export default function AdminReportsPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [selectedDept, setSelectedDept] = useState("all");
   const [departments, setDepartments] = useState<string[]>([]);
-  const [users, setUsers] = useState<any[]>([]); // For Individual Report
-  const [selectedUserId, setSelectedUserId] = useState<string>("");
-  const [open, setOpen] = useState(false);
   
   const [reportData, setReportData] = useState<any[]>([]);
   const [overviewData, setOverviewData] = useState<any>(null); 
@@ -77,27 +59,6 @@ export default function AdminReportsPage() {
   useEffect(() => {
     fetchDepartments();
   }, []);
-
-  // Fetch Users for Dropdown
-  useEffect(() => {
-    const fetchUsers = async () => {
-        try {
-            let query = supabase.from('profiles').select('id, full_name, department').order('full_name');
-            
-            if (selectedDept !== 'all') {
-                query = query.eq('department', selectedDept);
-            }
-
-            const { data, error } = await query;
-            if (error) throw error;
-            setUsers(data || []);
-            setSelectedUserId(""); // Reset selection on dept change
-        } catch (error) {
-            console.error("Error fetching users:", error);
-        }
-    };
-    fetchUsers();
-  }, [selectedDept]);
 
   useEffect(() => {
     // Reset when filters change
@@ -530,217 +491,8 @@ export default function AdminReportsPage() {
         window.URL.revokeObjectURL(url);
         toast.success("Muster Roll downloaded");
 
-        window.URL.revokeObjectURL(url);
-        toast.success("Muster Roll downloaded");
-
     } catch (e: any) {
         console.error("Matrix Error", e);
-        toast.error(e.message || "Download failed");
-    } finally {
-        setIsDownloading(false);
-    }
-  };
-
-  const handleDownloadIndividualReport = async () => {
-    if (!selectedUserId) {
-        toast.error("Please select an employee");
-        return;
-    }
-
-    setIsDownloading(true);
-    try {
-        const year = parseInt(selectedYear);
-        const month = parseInt(selectedMonth);
-        const startDate = format(new Date(year, month - 1, 1), 'yyyy-MM-dd');
-        const lastDay = new Date(year, month, 0);
-        const endDate = format(lastDay, 'yyyy-MM-dd');
-        const daysInMonth = lastDay.getDate();
-
-        // 1. Fetch User Profile
-        const { data: user } = await supabase
-            .from('profiles')
-            .select('*, work_config')
-            .eq('id', selectedUserId)
-            .single();
-        
-        if (!user) throw new Error("User not found");
-
-        // 2. Fetch Attendance
-        const { data: attendance } = await supabase
-            .from('attendance')
-            .select('*')
-            .eq('user_id', selectedUserId)
-            .gte('date', startDate)
-            .lte('date', endDate);
-
-        // 3. Fetch Leaves
-        const { data: leaves } = await supabase
-            .from('leaves')
-            .select('*')
-            .eq('user_id', selectedUserId)
-            .eq('status', 'approved')
-            .or(`start_date.lte.${endDate},end_date.gte.${startDate}`);
-
-        // 4. Build Excel
-        const workbook = new ExcelJS.Workbook();
-        const sheet = workbook.addWorksheet('Attendance Report');
-
-        // Styles
-        const headerStyle = { font: { bold: true, color: { argb: 'FFFFFFFF' } }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } } };
-        const centerStyle = { alignment: { horizontal: 'center', vertical: 'middle' } };
-        const borderStyle = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-
-        // Title Section
-        sheet.mergeCells('A1:H1');
-        sheet.getCell('A1').value = `Detailed Attendance Report - ${user.full_name}`;
-        sheet.getCell('A1').font = { size: 16, bold: true };
-        sheet.getCell('A1').alignment = { horizontal: 'center' };
-
-        sheet.mergeCells('A2:H2');
-        sheet.getCell('A2').value = `${format(new Date(year, month - 1), 'MMMM yyyy')}  |  Department: ${user.department || 'N/A'}`;
-        sheet.getCell('A2').alignment = { horizontal: 'center' };
-
-        sheet.addRow([]); // Spacer
-
-        // Headers
-        const headers = ['Date', 'Day', 'Shift Info', 'Check In', 'Check Out', 'Hours', 'Status', 'Remarks'];
-        const headerRow = sheet.addRow(headers);
-        headerRow.eachCell((cell) => {
-            cell.style = { ...headerStyle, ...centerStyle, border: borderStyle } as any;
-        });
-
-        // Loop Days
-        let totalPresent = 0;
-        let totalAbsent = 0;
-        let totalLeaves = 0;
-        let totalLate = 0;
-
-        for (let i = 1; i <= daysInMonth; i++) {
-            const dateObj = new Date(year, month - 1, i);
-            const dateStr = format(dateObj, 'yyyy-MM-dd');
-            const dayName = format(dateObj, 'EEEE');
-            
-            // Find Data
-            const record = attendance?.find((a: any) => a.date === dateStr);
-            const leave = leaves?.find((l: any) => l.start_date <= dateStr && l.end_date >= dateStr);
-            
-            // Determine Status Logic (Simplified Re-implementation of standard logic)
-            let status = 'Absent';
-            let remarks = '';
-            let checkIn = record?.check_in ? format(new Date(record.check_in), 'HH:mm') : '-';
-            let checkOut = record?.check_out ? format(new Date(record.check_out), 'HH:mm') : '-';
-            let workHours = '-';
-
-            // Work Hours Calc
-            if (record?.check_in && record?.check_out) {
-                const diff = (new Date(record.check_out).getTime() - new Date(record.check_in).getTime()) / (1000 * 60 * 60);
-                workHours = `${Math.floor(diff)}h ${Math.round((diff % 1) * 60)}m`;
-            }
-
-            // Determine Status
-            let isWorkingDay = true; 
-             // ... (Reuse WO logic roughly or simplify) ...
-             // For individual detailed report, accurate WO logic is cleaner.
-             if (user.work_config) {
-                 try {
-                     const wc = typeof user.work_config === 'string' ? JSON.parse(user.work_config) : user.work_config;
-                     const dayOfWeek = dateObj.getDay();
-                     if (wc.mode === 'fixed' && wc.fixed?.work_days) {
-                         isWorkingDay = wc.fixed.work_days.includes(dayOfWeek);
-                     } else if (wc.mode === 'flexible' && wc.flexible?.work_days) {
-                         isWorkingDay = wc.flexible.work_days.includes(dayOfWeek);
-                     } else {
-                        isWorkingDay = dayOfWeek !== 0 && dayOfWeek !== 6; 
-                     }
-                 } catch (e) { isWorkingDay = dateObj.getDay() !== 0 && dateObj.getDay() !== 6; }
-             } else {
-                 isWorkingDay = dateObj.getDay() !== 0 && dateObj.getDay() !== 6;
-             }
-
-            if (record) {
-                status = 'Present';
-                if (record.status === 'late') { status = 'Late'; totalLate++; }
-                else if (record.status === 'remote') status = 'Remote';
-                totalPresent++;
-            } else if (leave) {
-                if (leave.type === 'Extra Working Day') {
-                    status = 'Extra Working Day';
-                    remarks = leave.reason ? JSON.parse(leave.reason).reason : 'Approved Extra Work';
-                } else if (leave.type === 'Regularization') {
-                    status = 'Regularized';
-                    remarks = 'Attendance Regularized';
-                    totalPresent++;
-                } else {
-                    status = leave.type;
-                    remarks = leave.session && leave.session !== 'full_day' ? 'Half Day' : 'Full Day';
-                    totalLeaves++;
-                }
-            } else if (!isWorkingDay) {
-                status = 'Weekly Off';
-            } else if (dateObj > new Date()) {
-                status = '-'; // Future
-            } else {
-                status = 'Absent';
-                totalAbsent++;
-            }
-
-            // Row Data
-            const row = sheet.addRow([
-                dateStr,
-                dayName,
-                user.work_config ? 'Custom' : '9:30 - 18:30', // Placeholder for shift
-                checkIn,
-                checkOut,
-                workHours,
-                status,
-                remarks
-            ]);
-
-            // Styling Row
-            row.getCell(7).alignment = { horizontal: 'center' }; // Status
-            
-            // Color Coding Status
-            const statusCell = row.getCell(7);
-            if (status === 'Present') statusCell.font = { color: { argb: 'FF166534' }, bold: true }; // Green
-            if (status === 'Absent') statusCell.font = { color: { argb: 'FFDC2626' }, bold: true }; // Red
-            if (status === 'Weekly Off') statusCell.font = { color: { argb: 'FF64748B' }, italic: true }; // Slate
-            if (status === 'Extra Working Day') statusCell.font = { color: { argb: 'FF9333EA' }, bold: true }; // Purple
-            
-            row.eachCell((cell) => { cell.border = borderStyle as any; });
-        }
-
-        // Summary Row at Bottom
-        sheet.addRow([]);
-        const summaryRow = sheet.addRow(['Summary:', '', `Present: ${totalPresent}`, `Absent: ${totalAbsent}`, `Leaves: ${totalLeaves}`, `Late: ${totalLate}`]);
-        summaryRow.font = { bold: true };
-        summaryRow.getCell(1).alignment = { horizontal: 'right' };
-
-        // Auto widths
-        sheet.columns.forEach(column => {
-             // @ts-ignore
-            let maxLen = 0;
-            // @ts-ignore
-            column.eachCell({ includeEmpty: true }, (cell) => {
-                const len = cell.value ? cell.value.toString().length : 0;
-                if (len > maxLen) maxLen = len;
-            });
-            column.width = maxLen < 10 ? 10 : maxLen + 2;
-        });
-
-
-        // Export
-        const buffer = await workbook.xlsx.writeBuffer();
-        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        const url = window.URL.createObjectURL(blob);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = `${user.full_name.replace(' ', '_')}_${format(new Date(year, month - 1), 'MMM_yyyy')}_Report.xlsx`;
-        anchor.click();
-        window.URL.revokeObjectURL(url);
-        toast.success("Individual Report downloaded");
-
-    } catch (e: any) {
-        console.error("Report Error", e);
         toast.error(e.message || "Download failed");
     } finally {
         setIsDownloading(false);
@@ -1259,8 +1011,8 @@ export default function AdminReportsPage() {
                         </CardContent>
                     </Card>
 
-                    {/* Individual Report Card */}
-                    <Card className="hover:shadow-md transition-shadow">
+                    {/* Individual Report Card (Placeholder for now) */}
+                    <Card className="hover:shadow-md transition-shadow opacity-60">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-lg">
                                 <FileUser className="h-5 w-5 text-blue-600" />
@@ -1271,65 +1023,12 @@ export default function AdminReportsPage() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                             <div className="bg-slate-50 p-4 rounded-md text-xs text-slate-500 mb-4 space-y-2">
-                                <p><strong>Includes:</strong> Check-in/out, Hours, Detailed Status</p>
-                                <p><strong>Format:</strong> Detailed Timeline View</p>
+                             <div className="bg-slate-50 p-4 rounded-md text-xs text-slate-500 mb-4">
+                                <p>Coming Soon</p>
                              </div>
-                             
-                             <div className="space-y-3">
-                                <Popover open={open} onOpenChange={setOpen}>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            role="combobox"
-                                            aria-expanded={open}
-                                            className="w-full justify-between"
-                                        >
-                                            {selectedUserId
-                                                ? users.find((u) => u.id === selectedUserId)?.full_name
-                                                : "Select Employee..."}
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-[300px] p-0">
-                                        <Command>
-                                            <CommandInput placeholder="Search employee..." />
-                                            <CommandList>
-                                                <CommandEmpty>No employee found.</CommandEmpty>
-                                                <CommandGroup>
-                                                    {users.map((u) => (
-                                                        <CommandItem
-                                                            key={u.id}
-                                                            value={u.full_name}
-                                                            onSelect={() => {
-                                                                setSelectedUserId(u.id);
-                                                                setOpen(false);
-                                                            }}
-                                                        >
-                                                            <Check
-                                                                className={cn(
-                                                                    "mr-2 h-4 w-4",
-                                                                    selectedUserId === u.id ? "opacity-100" : "opacity-0"
-                                                                )}
-                                                            />
-                                                            {u.full_name}
-                                                        </CommandItem>
-                                                    ))}
-                                                </CommandGroup>
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
-
-                                <Button 
-                                    className="w-full bg-blue-600 hover:bg-blue-700" 
-                                    onClick={handleDownloadIndividualReport}
-                                    disabled={isDownloading || !selectedUserId}
-                                >
-                                    {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                                    Download Report
-                                </Button>
-                             </div>
+                             <Button variant="outline" className="w-full" disabled>
+                                Select Employee
+                             </Button>
                         </CardContent>
                     </Card>
                 </div>
